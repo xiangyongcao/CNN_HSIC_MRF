@@ -5,9 +5,9 @@
 ----------
 ## **HSI-CNN-MRF**
 
-This is a TensorFlow implementation of Convolutional Neural Network (CNN) for the task of Hyperspectral Image Segmentation based on the code in https://github.com/KGPML/Hyperspectral, as described in our paper: 
+This is a TensorFlow implementation of Convolutional Neural Network (CNN) for the task of Hyperspectral Image Segmentation based on the code (https://github.com/KGPML/Hyperspectral), as described in our paper: 
 
-X. Cao, F. Zhou, L. Xu, D. Meng, Z. Xu and J. Paisley. Hyperspectral image segmentation with Markov random fields and a convolutional neural network, arXiv:1705.00727. 
+X. Cao, F. Zhou, L. Xu, D. Meng, Z. Xu and J. Paisley. Hyperspectral image segmentation with Markov random fields and a convolutional neural network, arXiv:1705.00727. This is [an example](http://example.com/ "Title") inline link.
 
 ### **Requirments**
 
