@@ -3,7 +3,7 @@
 
 
 ----------
-## **HSI-CNN-MRF**
+## **CNN-HSI-MRF**
 
 This is a TensorFlow implementation of Convolutional Neural Network (CNN) for the task of Hyperspectral Image Segmentation based on the code (https://github.com/KGPML/Hyperspectral), as described in our paper: 
 
