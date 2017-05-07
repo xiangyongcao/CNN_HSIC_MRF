@@ -29,6 +29,6 @@ This code is protected by the MIT licence. Please cite our paper if you use this
     year={2017}
     }
     
-If you have any question in using the code, please welcom to contact Xiangyong Cao (caoxiangyong45@gmail.com).
+If you have any question in using the code, welcom to contact Xiangyong Cao (caoxiangyong45@gmail.com).
 
 
