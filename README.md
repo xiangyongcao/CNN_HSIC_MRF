@@ -24,7 +24,7 @@ This code is protected by the MIT licence. Please cite our paper if you use this
 
     @article{cao2017hyperspectral,
     title={Hyperspectral image segmentation with Markov random fields and a convolutional neural network},
-    author={Cao, Xiangyong and Zhou, Feng and Xu, Lin and Meng, Deyu and Xu, Zongben},
+    author={Cao, Xiangyong and Zhou, Feng and Xu, Lin and Meng, Deyu and Xu, Zongben and Paisley, John},
     journal={arXiv preprint arXiv:1705.00727},
     year={2017}
     }
