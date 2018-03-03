@@ -16,8 +16,8 @@ import time
 import pandas as pd
 from utils import patch_size,convertToOneHot
 import math
+from sklearn.decomposition import PCA
 
-flag_OS = False     # true if adopt over-sample strategy 
 flag_augment = True    # true if adopt data-augmentation strategy
 
 start_time = time.time()
@@ -35,7 +35,7 @@ Label = scipy.io.loadmat(os.path.join(DATA_PATH, 'Indian_pines_gt.mat'))['indian
 
 ## Some constant parameters
 Height, Width, Band = Data.shape[0], Data.shape[1], Data.shape[2]
-Num_Classes = len(np.unique(Label))-1   
+Num_Classes = len(np.unique(Label))-1     # Simu: len(np.unique(Label))  
 
 
 ## Scale the HSI Data between [0,1]
@@ -43,7 +43,14 @@ Data = Data.astype(float)
 for band in range(Band):
     Data[:,:,band] = (Data[:,:,band]-np.min(Data[:,:,band]))/(np.max(Data[:,:,band])-np.min(Data[:,:,band]))
 
+#data_all = Data.transpose(2,0,1).transpose(0,2,1).reshape(Band,-1).transpose(1,0)
+#n_components = 40
+#pca = PCA(n_components=n_components)
+#data_all = pca.fit_transform(data_all)
+#Data = data_all.transpose(1,0).reshape(n_components,Width,Height).transpose(0,2,1).transpose(1,2,0)    
+    
 ## padding the data beforehand
+Height, Width, Band = Data.shape[0], Data.shape[1], Data.shape[2]
 Data_Padding = np.zeros((Height+int(patch_size-1),Width+int(patch_size-1),Band))
 for band in range(Band):
     Data_Padding[:,:,band] = pad(Data[:,:,band],int((patch_size-1)/2),'symmetric')
@@ -85,6 +92,7 @@ for k in range(Num_Classes):
 
 def DataDivide(Classes_k,Num_Train_Each_Class_k,Classes_Index_k):
     """ function to divide collected patches into training and test patches """
+    np.random.seed(0)
     idx = np.random.choice(len(Classes_k), Num_Train_Each_Class_k, replace=False)
     train_patch = [Classes_k[i] for i in idx]
     train_index = [Classes_Index_k[i] for i in idx]
@@ -115,57 +123,39 @@ for k in range(Num_Classes):
     Test_Patch.extend(test_patch)    # patches_of_current_class[-test_split_size:]
     Test_Label.extend(np.full(Num_Test_Each_Class[k], k, dtype=int))
 
-# Oversample the classes which do not have at least COUNT patches in the training set 
-# and extract COUNT patches
-if flag_OS:
-    Count = 200
-    Resample_Num_Count = []
-    for k in range(Num_Classes):
-        if(len(Train_Patch[k])<Count):
-            tmp = Train_Patch[k]
-            for j in range(int(Count/len(Train_Patch[k]))):
-                shuffle(Train_Patch[k])
-                Train_Patch[k] = Train_Patch[k] + tmp   
-            shuffle(Train_Patch[k])
-            Train_Patch[k] = Train_Patch[k][:Count]
-        if(len(Train_Patch[k])>=Count):
-            Train_Patch[k] = Train_Patch[k]
-        Resample_Num_Count.append(len(Train_Patch[k]))
-
-    Train_Label = []
-    for k in range(Num_Classes):
-        Train_Label.append([k] * Resample_Num_Count[k])
-
-if flag_OS == False:
-    Train_Label = []
-    for k in range(Num_Classes):
-        Train_Label.append([k]*Num_Train_Each_Class[k])
-        Resample_Num_Count = Num_Train_Each_Class
+Train_Label = []
+for k in range(Num_Classes):
+    Train_Label.append([k]*Num_Train_Each_Class[k])
+    Resample_Num_Count = Num_Train_Each_Class
     
-# Augment the data with random flipped and rotated patches    
+# Augment the data with random flipped and rotated patches
+fixed_Train_Patch = Train_Patch    
 if flag_augment:
+    Resample_Num_Count = []
+    times = 10    # can be tuned
     for k in range(Num_Classes):
-        shuffle(Classes[k])
-        #There will be COUNT/2 original patches and COUNT/2 randomly rotated/flipped patches of each class
-        for j in range(int(Num_Each_Class[k]/5)):   # can be tuned
-             num = random.randint(0,3)
-             if num == 0 :
-                 #Flip patch up-down
-                 flipped_patch = np.flipud(Classes[k][j]) 
-             if num == 1 :
-                 #Flip patch left-right
-                 flipped_patch = np.fliplr(Classes[k][j]) 
-             if num == 2 :
-                 #add gaussian noise
-                 flipped_patch = Classes[k][j] + np.random.normal(0,0.01,size = Classes[k][j].shape) 
-             if num == 3 :
-                 #Rotate patch by a random angle
-                 no = random.randrange(-180,180,30)
-                 flipped_patch = scipy.ndimage.interpolation.rotate(Classes[k][j], no,axes=(1, 0), 
-                     reshape=False, output=None, order=3, mode='constant', cval=0.0, prefilter=False) 
-             Train_Patch[k].append(flipped_patch)
-             Train_Label[k].append(k)
-
+        for l in range(times*Num_Train_Each_Class[k]):               
+            if(len(Train_Patch[k])<times*Num_Train_Each_Class[k]):   
+                num = random.randint(0,3)
+                j = random.randint(0,Num_Train_Each_Class[k]-1)
+                if num == 0 :
+                    #Flip patch up-down
+                    flipped_patch = np.flipud(fixed_Train_Patch[k][j]) 
+                if num == 1 :
+                    #Flip patch left-right
+                    flipped_patch = np.fliplr(fixed_Train_Patch[k][j]) 
+                if num == 2 :
+                    #add gaussian noise
+                    flipped_patch = Train_Patch[k][j] + np.random.normal(0,0.01,size = fixed_Train_Patch[k][j].shape) 
+                if num == 3 :
+                    #Rotate patch by a random angle
+                    no = random.randrange(-180,180,30)
+                    flipped_patch = scipy.ndimage.interpolation.rotate(fixed_Train_Patch[k][j], no,axes=(1, 0), 
+                        reshape=False, output=None, order=3, mode='constant', cval=0.0, prefilter=False)
+                Train_Patch[k].append(flipped_patch)
+                Train_Label[k].append(k)
+        Resample_Num_Count.append(len(Train_Patch[k]))
+                                
     OS_Aug_Num_Training_Each = []             
     for k in range(Num_Classes):
         OS_Aug_Num_Training_Each.append(len(Train_Label[k])) 
@@ -290,3 +280,24 @@ print("=======================================================================")
 print('Data Preparation is Completed! (It takes %.5f seconds)'%(duration_time))
 print("=======================================================================")
 
+def load_index_data():
+    data_path = os.getcwd()
+    train_index = scipy.io.loadmat(os.path.join(data_path, 'TrainIndex.mat'))['TrainIndex']
+    test_index = scipy.io.loadmat(os.path.join(data_path, 'TestIndex.mat'))['TestIndex']
+    train_index = train_index[0]
+    test_index = test_index[0]    
+
+    TrainData = {}
+    TrainData['train_patch']  = np.array([All_data['patch'][i] for i in train_index])
+    TrainLabel = [All_data['labels'][i] for i in train_index]
+    TrainLabel = np.array(TrainLabel)
+    TrainLabel = convertToOneHot(TrainLabel-1,num_classes=Num_Classes)
+    TrainData['train_labels']  = TrainLabel
+
+    TestData = {}
+    TestData['test_patch']  = np.array([All_data['patch'][i] for i in test_index])
+    TestLabel = [All_data['labels'][i] for i in test_index]
+    TestLabel = np.array(TestLabel)
+    TestLabel = convertToOneHot(TestLabel-1,num_classes=Num_Classes)
+    TestData['test_labels']  = TestLabel
+    return TrainData, TestData, train_index, test_index

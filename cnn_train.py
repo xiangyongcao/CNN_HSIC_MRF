@@ -8,18 +8,41 @@ This code is modified based on https://github.com/KGPML/Hyperspectral
 from __future__ import print_function
 import tensorflow as tf
 import HSI_Data_Preparation
-from HSI_Data_Preparation import num_train,Band, All_data, TrainIndex, TestIndex
-from utils import patch_size
+from HSI_Data_Preparation import num_train,Band, All_data, TrainIndex, TestIndex, Height, Width
+from utils import patch_size, Post_Processing
 import numpy as np
 import os
 import scipy.io
 from cnn_model import conv_net
 import time
 
+
+def compute_prob_map():
+    # Obtain the probabilistic map
+    num_all = len(All_data['patch'])
+    times = 20
+    num_each_time = int(num_all / times)
+    res_num = num_all - times * num_each_time
+    Num_Each_File = num_each_time * np.ones((1,times),dtype=int)
+    Num_Each_File = Num_Each_File[0]
+    Num_Each_File[times-1] = Num_Each_File[times-1] + res_num
+    start = 0
+    prob_map = np.zeros((1,n_classes))
+    for i in range(times):
+        feed_x = np.reshape(np.asarray(All_data['patch'][start:start+Num_Each_File[i]]),(-1,n_input))
+        temp = sess.run(softmax_output, feed_dict={x: feed_x})
+        prob_map = np.concatenate((prob_map,temp),axis=0)
+        start += Num_Each_File[i]
+    
+    prob_map = np.delete(prob_map,(0),axis=0)
+    return prob_map
+
+
 start_time = time.time()
 
 # Import HSI data
 Training_data, Test_data = HSI_Data_Preparation.Prepare_data()
+#Training_data, Test_data, TrainIndex, TestIndex = HSI_Data_Preparation.load_index_data()
 n_input = Band * patch_size * patch_size 
 
 Training_data['train_patch'] = np.transpose(Training_data['train_patch'],(0,2,3,1))
@@ -57,10 +80,13 @@ predict_test_label = tf.argmax(pred, 1)
 # Initializing the variables
 init = tf.global_variables_initializer()
 
+x_test, y_test = Test_data['test_patch'], Test_data['test_labels']
+y_test_scalar = np.argmax(y_test,1) + 1
+x_train, y_train = Training_data['train_patch'],Training_data['train_labels']
+
 # Launch the graph
 with tf.Session() as sess:
-    sess.run(init)
-    
+    sess.run(init) 
     # Training cycle
     for iteration in range(training_iters):
         idx = np.random.choice(num_train, size=batch_size, replace=False)
@@ -77,14 +103,13 @@ with tf.Session() as sess:
             "Training Accuracy=%.4f" % (train_acc))
         if iteration % 1000 ==0:
             print('Training Data Eval: Training Accuracy = %.4f' % sess.run(accuracy,\
-                feed_dict={x: Training_data['train_patch'],y: Training_data['train_labels']}))
+                feed_dict={x: x_train,y: y_train}))
             print('Test Data Eval: Test Accuracy = %.4f' % sess.run(accuracy,\
-                feed_dict={x: Test_data['test_patch'],y: Test_data['test_labels']}))
+                feed_dict={x: x_test,y: y_test}))
     print("Optimization Finished!")
 
     # Test model
-    test_x, test_y = Test_data['test_patch'], Test_data['test_labels']
-    print("The Final Test Accuracy is :", sess.run(accuracy,feed_dict={x: test_x,y: test_y}))
+    print("The Final Test Accuracy is :", sess.run(accuracy,feed_dict={x: x_test,y: y_test}))
     
    
     # Obtain the probabilistic map
@@ -106,6 +131,10 @@ with tf.Session() as sess:
     
     prob_map = np.delete(prob_map,(0),axis=0)
 
+    # MRF 
+    prob_map = compute_prob_map()
+    Seg_Label, seg_Label, seg_accuracy = Post_Processing(prob_map,Height,Width,n_classes,y_test_scalar,TestIndex)
+    
     print('The shape of prob_map is (%d,%d)' %(prob_map.shape[0],prob_map.shape[1]))
     DATA_PATH = os.getcwd()
     file_name = 'prob_map.mat'

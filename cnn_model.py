@@ -12,9 +12,8 @@ import tensorflow as tf
 from tensorflow.contrib import slim
 from utils import patch_size
 
-num_band = 220    
+num_band = 220  # paviaU 103  
 num_classes = 16
-
 
 def conv_net(x):
     with slim.arg_scope([slim.conv2d, slim.fully_connected],

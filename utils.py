@@ -9,6 +9,8 @@ This code is modified based on https://github.com/KGPML/Hyperspectral
 import tensorflow as tf
 import numpy as np
 import scipy.io as io
+from pygco import cut_simple, cut_simple_vh
+from sklearn.metrics import accuracy_score
 
 patch_size = 9   # can be tuned
 
@@ -122,3 +124,22 @@ def convertToOneHot(vector, num_classes=None):
     result = np.zeros(shape=(len(vector), num_classes))
     result[np.arange(len(vector)), vector] = 1
     return result.astype(int)
+
+
+def unaries_reshape(unaries,height,width,num_classes):
+    una = []
+    for i in range(num_classes):
+        temp = unaries[:,i].reshape(height,width).transpose(1,0)
+        una.append(temp)
+    return np.dstack(una).copy("C")
+
+
+def Post_Processing(prob_map,height,width,num_classes,y_test,test_indexes):
+    unaries = (-20*np.log(prob_map+1e-4)).astype(np.int32)
+    una = unaries_reshape(unaries,width,height,num_classes)
+    one_d_topology = (np.ones(num_classes)-np.eye(num_classes)).astype(np.int32).copy("C")
+    Seg_Label = cut_simple(una, 50 * one_d_topology)
+    Seg_Label = Seg_Label + 1
+    seg_Label = Seg_Label.transpose().flatten()
+    seg_accuracy = accuracy_score(y_test,seg_Label[test_indexes])
+    return Seg_Label, seg_Label, seg_accuracy
